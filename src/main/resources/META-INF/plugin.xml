@@ -1,0 +1,30 @@
+<idea-plugin require-restart="true">
+    <id>com.zerdicorp.acl</id>
+    <name>ACL</name>
+    <vendor email="nikolaianikin2002@gmail.com" url="https://t.me/ZERDICORP">ZERDICORP</vendor>
+    <description>
+        ACL (Auto ChangeLog) is a plugin for automatically adding git log to the changelog file.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.zerdicorp.acl.ACLActivity"/>
+        <notificationGroup id="ACL Notification Group"
+                           displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action id="com.zerdicorp.acl.ACLAction" class="com.zerdicorp.acl.ACLAction"
+                text="Write New Changelog" description="Action to add git log to changelog.txt"
+                icon="com.zerdicorp.acl.ACLIcons.main">
+            <add-to-group group-id="ToolbarRunGroup" anchor="first"/>
+        </action>
+    </actions>
+
+    <application-components>
+        <component>
+            <implementation-class>com.zerdicorp.acl.ACLActivity</implementation-class>
+        </component>
+    </application-components>
+</idea-plugin>
