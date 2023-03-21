@@ -26,6 +26,10 @@ public interface ACLUtils {
         });
     }
 
+    static void info(String text) {
+        Messages.showInfoMessage(text, "ACL Info");
+    }
+
     static void error(String text) {
         Messages.showErrorDialog(text, "ACL Error");
     }

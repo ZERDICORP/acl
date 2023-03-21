@@ -6,21 +6,33 @@ import com.intellij.openapi.project.Project;
 import org.apache.commons.lang.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.IOException;
 
 import static com.intellij.notification.NotificationType.INFORMATION;
-import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_NAME;
-import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_PATH;
+import static com.zerdicorp.acl.ACLActivity.*;
 import static com.zerdicorp.acl.ACLUtils.*;
 
 public class ACLAction extends AnAction {
 
     @Override
     public void update(AnActionEvent e) {
-        // Using the event, evaluate the context, and enable or disable the action.
+        // don't need it //
+    }
+
+    private void preCheck(Project project) {
+        if (CHANGELOG_FILE_PATH == null || !new File(CHANGELOG_FILE_PATH).exists()) {
+            if (!findChangelog(project)) {
+                throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " +
+                        "Please specify the file in the backend folder and try again");
+            }
+            info("File " + CHANGELOG_FILE_NAME + " found. Ready to work!");
+        }
     }
 
     private void _actionPerformed(Project project) {
+        preCheck(project);
+
         String lastVersion;
         try {
             lastVersion = getLastVersion(CHANGELOG_FILE_PATH);
