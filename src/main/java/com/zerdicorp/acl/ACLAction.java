@@ -8,9 +8,14 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
+import static com.intellij.notification.NotificationType.ERROR;
 import static com.intellij.notification.NotificationType.INFORMATION;
-import static com.zerdicorp.acl.ACLActivity.*;
+import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_NAME;
+import static com.zerdicorp.acl.ACLActivity.findChangelog;
+import static com.zerdicorp.acl.ACLStateService.getChangelogPath;
+import static com.zerdicorp.acl.ACLStateService.saveLastInsertedData;
 import static com.zerdicorp.acl.ACLUtils.*;
 
 public class ACLAction extends AnAction {
@@ -20,24 +25,24 @@ public class ACLAction extends AnAction {
         // don't need it //
     }
 
-    private void preCheck(Project project) {
-        if (CHANGELOG_FILE_PATH == null || !new File(CHANGELOG_FILE_PATH).exists()) {
+    private void preCheck(Project project, String changelogPath) {
+        if (changelogPath == null || !new File(changelogPath).exists()) {
             if (!findChangelog(project)) {
-                throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " +
-                        "Please specify the file in the backend folder and try again");
+                throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " + "Please specify the file in the backend folder and try again", List.of(CHOOSE_ANOTHER_ACTION));
             }
-            info("File " + CHANGELOG_FILE_NAME + " found. Ready to work!");
         }
     }
 
     private void _actionPerformed(Project project) {
-        preCheck(project);
+        String changelogPath = getChangelogPath(project);
+
+        preCheck(project, changelogPath);
 
         String lastVersion;
         try {
-            lastVersion = getLastVersion(CHANGELOG_FILE_PATH);
+            lastVersion = getLastVersion(changelogPath);
         } catch (IOException ex) {
-            throw new ACLException("Can't extract last version from " + CHANGELOG_FILE_PATH);
+            throw new ACLException("Can't extract last version from " + changelogPath);
         }
 
         // Validating last version and extracting version parts.
@@ -54,19 +59,11 @@ public class ACLAction extends AnAction {
             throw new ACLException("Invalid last version in " + CHANGELOG_FILE_NAME);
         }
 
-        final String[] possibleVersions = new String[]{
-                (major + 1) + ".0.0",
-                major + "." + (minor + 1) + ".0",
-                major + "." + minor + "." + (patch + 1)
-        };
+        final String[] possibleVersions = new String[]{(major + 1) + ".0.0", major + "." + (minor + 1) + ".0", major + "." + minor + "." + (patch + 1)};
 
-        String newVersion = select(
-                "ACL Dialog",
-                "Select the desired version change:",
-                possibleVersions,
+        String newVersion = select("ACL Dialog", "Select the desired version change:", possibleVersions,
                 // Set by default minor version change (because the most used).
-                possibleVersions[1]
-        );
+                possibleVersions[1]);
 
         if (newVersion == null) {
             return;
@@ -76,53 +73,33 @@ public class ACLAction extends AnAction {
         try {
             lastCommit = lastCommit(project.getBasePath());
         } catch (IOException ex) {
-            throw new ACLException(
-                    "Can't extract last commit message from " + project.getBasePath()
-            );
+            throw new ACLException("Can't extract last commit message from " + project.getBasePath());
         }
 
         String[] frequent;
         try {
-            frequent = (String[]) ArrayUtils.addAll(
-                    new String[]{""},
-                    findFrequent(CHANGELOG_FILE_PATH)
-            );
+            frequent = (String[]) ArrayUtils.addAll(new String[]{""}, findFrequent(changelogPath));
         } catch (IOException e) {
-            throw new ACLException("Can't find frequent from " + CHANGELOG_FILE_PATH);
+            throw new ACLException("Can't find frequent from " + changelogPath);
         }
 
-        String description = input(
-                "ACL Dialog",
-                "Add description if you want:",
-                frequent,
-                frequent[0]
-        );
+        String description = input("ACL Dialog", "Add description if you want:", frequent, frequent[0]);
         if (description == null) {
             return;
         }
 
+        String data = "Version: " + newVersion + "\n" + lastCommit + "\n" + (description.length() == 0 ? "\n" : ("Description: " + description + "\n\n\n"));
         try {
-            appendTop(
-                    CHANGELOG_FILE_PATH,
-                    "Version: " + newVersion + "\n" + lastCommit + "\n" + (
-                            description.length() == 0 ? "\n" : ("Description: " + description + "\n\n\n")
-                    )
-            );
+            appendTop(changelogPath, data);
         } catch (IOException ex) {
-            throw new ACLException("Can't write log to " + CHANGELOG_FILE_PATH);
+            throw new ACLException("Can't write log to " + changelogPath);
         }
 
-        notification(
-                "ACL Info",
-                "Log with version \"" + newVersion + "\" added to " + CHANGELOG_FILE_NAME,
-                project,
-                INFORMATION
-        );
+        saveLastInsertedData(project, data);
 
-        final int answer = yesno(
-                "ACL Addition",
-                "Do you want to commit " + CHANGELOG_FILE_NAME + " & squash?"
-        );
+        notification("ACL Info", "Log with version \"" + newVersion + "\" added to " + CHANGELOG_FILE_NAME, project, INFORMATION, List.of(OPEN_FILE));
+
+        final int answer = yesno("ACL Addition", "Do you want to commit " + CHANGELOG_FILE_NAME + " & squash?");
 
         if (answer == 1) {
             return;
@@ -130,21 +107,12 @@ public class ACLAction extends AnAction {
 
         String lastCommitMessage = commitMessage(lastCommit);
         try {
-            commitAndSquash(
-                    project.getBasePath(),
-                    CHANGELOG_FILE_PATH,
-                    lastCommitMessage
-            );
+            commitAndSquash(project.getBasePath(), changelogPath, lastCommitMessage);
         } catch (IOException e) {
             throw new ACLException("Can't commit & squash in " + project.getBasePath());
         }
 
-        notification(
-                "ACL Info",
-                "Committed and squashed",
-                project,
-                INFORMATION
-        );
+        notification("ACL Info", "Committed and squashed", project, INFORMATION);
     }
 
     @Override
@@ -153,7 +121,7 @@ public class ACLAction extends AnAction {
         try {
             _actionPerformed(project);
         } catch (ACLException ex) {
-            error(ex.text);
+            notification("ACL Error", ex.text, project, ERROR, ex.actions);
         }
     }
 

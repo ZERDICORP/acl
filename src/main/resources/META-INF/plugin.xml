@@ -12,6 +12,7 @@
         <postStartupActivity implementation="com.zerdicorp.acl.ACLActivity"/>
         <notificationGroup id="ACL Notification Group"
                            displayType="BALLOON"/>
+        <projectService serviceImplementation="com.zerdicorp.acl.ACLStateService"/>
     </extensions>
 
     <actions>

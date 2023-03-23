@@ -1,29 +1,166 @@
 package com.zerdicorp.acl;
 
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationAction;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.markup.HighlighterLayer;
+import com.intellij.openapi.editor.markup.HighlighterTargetArea;
+import com.intellij.openapi.editor.markup.RangeHighlighter;
+import com.intellij.openapi.editor.markup.TextAttributes;
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
+import com.intellij.openapi.fileChooser.FileChooserFactory;
+import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.ui.Gray;
+import com.intellij.ui.JBColor;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
+import org.jetbrains.annotations.NotNull;
 
+import java.awt.*;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Stream;
 
+import static com.intellij.notification.NotificationType.INFORMATION;
+import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_NAME;
+import static com.zerdicorp.acl.ACLStateService.*;
+
 public interface ACLUtils {
-    static void notification(String title, String text, Project project, NotificationType notificationType) {
+    AnAction OPEN_FILE = new NotificationAction("Check it out") {
+        @Override
+        public boolean isDumbAware() {
+            return super.isDumbAware();
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {
+            String changelogPath = getChangelogPath(e.getProject());
+            VirtualFile file = VfsUtil.findFile(Paths.get(changelogPath), true);
+            if (file == null) {
+                error("Can't open " + CHANGELOG_FILE_NAME + "..");
+                return;
+            }
+
+            String lastInsertedData = getLastInsertedData(e.getProject());
+            if (lastInsertedData == null) {
+                return;
+            }
+
+            OpenFileDescriptor desc = new OpenFileDescriptor(e.getProject(), file, 0, 0);
+            desc.navigate(true);
+
+            Editor editor = FileEditorManager.getInstance(e.getProject()).getSelectedTextEditor();
+            int startOffset = editor.getCaretModel().getOffset();
+            int endOffset = startOffset + lastInsertedData.length() - 2;
+
+            for (RangeHighlighter highlighter : editor.getMarkupModel().getAllHighlighters()) {
+                highlighter.dispose();
+            }
+
+            editor.getMarkupModel().addRangeHighlighter(
+                    startOffset,
+                    endOffset,
+                    HighlighterLayer.SELECTION,
+                    new TextAttributes(
+                            null,
+                            new JBColor(
+                                    new Color(126, 234, 122, 50),
+                                    new Color(126, 234, 122, 50)
+                            ),
+                            null,
+                            null,
+                            Font.PLAIN
+                    ),
+                    HighlighterTargetArea.EXACT_RANGE
+            );
+        }
+    };
+
+    AnAction CHOOSE_ANOTHER_ACTION = new NotificationAction("Choose another") {
+        @Override
+        public boolean isDumbAware() {
+            return super.isDumbAware();
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {
+            String newChangelogPath = chooseFile(e.getProject());
+            if (newChangelogPath != null) {
+                saveChangelogPath(e.getProject(), newChangelogPath);
+                notification(
+                        "ACL Welcome",
+                        "Changelog file found: " + newChangelogPath + "<br><br>Ready to work!",
+                        e.getProject(),
+                        INFORMATION,
+                        List.of(CHOOSE_ANOTHER_ACTION)
+                );
+            }
+        }
+    };
+
+    static String shortPath(String path, String projectPath) {
+        String[] components = path.replace(projectPath, "").split("/");
+        int len = components.length;
+        if (len > 3) {
+            return components[0] + "/.../" + components[len - 2] + "/" + components[len - 1];
+        }
+        return String.join("/", components);
+    }
+
+    static void notification(
+            String title,
+            String text,
+            Project project,
+            NotificationType notificationType
+    ) {
+        notification(title, text, project, notificationType, List.of());
+    }
+
+    static void notification(
+            String title,
+            String text,
+            Project project,
+            NotificationType notificationType,
+            Collection<? extends AnAction> actions
+    ) {
         ApplicationManager.getApplication().invokeLater(() -> {
-            NotificationGroupManager.getInstance()
+            Notification n = NotificationGroupManager.getInstance()
                     .getNotificationGroup("ACL Notification Group")
-                    .createNotification(title, text, notificationType)
-                    .notify(project);
+                    .createNotification(
+                            title,
+                            text,
+                            notificationType
+                    );
+            n.addActions(actions);
+            n.notify(project);
         });
+    }
+
+    static String chooseFile(Project project) {
+        VirtualFile[] files = FileChooserFactory.getInstance()
+                .createFileChooser(FileChooserDescriptorFactory.createSingleFileDescriptor(), project, null)
+                .choose(project);
+
+        if (files.length == 0) {
+            return null;
+        }
+
+        return files[0].getCanonicalPath();
     }
 
     static void info(String text) {
