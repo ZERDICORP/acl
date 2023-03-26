@@ -20,7 +20,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.Gray;
 import com.intellij.ui.JBColor;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -32,8 +31,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static com.intellij.notification.NotificationType.INFORMATION;
@@ -241,6 +240,52 @@ public interface ACLUtils {
                 "; git commit -m \"" + lastCommitMessage + "\""
         };
         rt.exec(commands);
+    }
+
+    private static String[] parseFoundNormalAndGetPossibleVersions(String foundNormalVersion) {
+        int major;
+        int minor;
+        int patch;
+        try {
+            final String[] versionParts = foundNormalVersion.split("\\.");
+
+            major = Integer.parseInt(versionParts[0]);
+            minor = Integer.parseInt(versionParts[1]);
+            patch = Integer.parseInt(versionParts[2]);
+        } catch (Exception ex) {
+            return null;
+        }
+
+        return new String[]{
+                (major + 1) + ".0.0",
+                major + "." + (minor + 1) + ".0",
+                major + "." + minor + "." + (patch + 1)
+        };
+    }
+
+    private static String[] parseFoundRCAndGetPossibleVersions(String foundRCVersion) {
+        String version;
+        int rc;
+        try {
+            final String[] versionAndRC = foundRCVersion.split("-RC\\.");
+            version = versionAndRC[0];
+            rc = Integer.parseInt(versionAndRC[1]);
+        } catch (Exception ex) {
+            return null;
+        }
+
+        return new String[]{
+                version + "-RC." + (rc + 1)
+        };
+    }
+
+    static String[] parseFoundAndGetPossibleVersions(String foundVersion) {
+        final String[] normal = parseFoundNormalAndGetPossibleVersions(foundVersion);
+        if (normal != null) {
+            return normal;
+        }
+
+        return parseFoundRCAndGetPossibleVersions(foundVersion);
     }
 
     static String getLastVersion(String pathToChangelog) throws IOException {

@@ -45,25 +45,23 @@ public class ACLAction extends AnAction {
             throw new ACLException("Can't extract last version from " + changelogPath);
         }
 
-        // Validating last version and extracting version parts.
-        int major;
-        int minor;
-        int patch;
-        try {
-            final String[] versionParts = lastVersion.split("\\.");
-
-            major = Integer.parseInt(versionParts[0]);
-            minor = Integer.parseInt(versionParts[1]);
-            patch = Integer.parseInt(versionParts[2]);
-        } catch (Exception ex) {
-            throw new ACLException("Invalid last version in " + CHANGELOG_FILE_NAME);
+        final String[] possibleVersions = parseFoundAndGetPossibleVersions(lastVersion);
+        if (possibleVersions == null) {
+            throw new ACLException("Invalid last version '" + lastVersion + "' found in " + CHANGELOG_FILE_NAME);
         }
 
-        final String[] possibleVersions = new String[]{(major + 1) + ".0.0", major + "." + (minor + 1) + ".0", major + "." + minor + "." + (patch + 1)};
+        String defaultVersion = possibleVersions[0];
+        if (possibleVersions.length > 2) {
+            defaultVersion = possibleVersions[1];
+        }
 
-        String newVersion = select("ACL Dialog", "Select the desired version change:", possibleVersions,
-                // Set by default minor version change (because the most used).
-                possibleVersions[1]);
+        String newVersion = select(
+                "ACL Dialog",
+                "Select the desired version change:",
+                possibleVersions,
+                // Set by default minor version change (because the most used)..
+                defaultVersion
+        );
 
         if (newVersion == null) {
             return;
