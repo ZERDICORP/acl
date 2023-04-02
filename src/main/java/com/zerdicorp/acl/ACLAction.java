@@ -14,6 +14,7 @@ import static com.intellij.notification.NotificationType.ERROR;
 import static com.intellij.notification.NotificationType.INFORMATION;
 import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_NAME;
 import static com.zerdicorp.acl.ACLActivity.findChangelog;
+import static com.zerdicorp.acl.ACLLogBuilder.build;
 import static com.zerdicorp.acl.ACLStateService.getChangelogPath;
 import static com.zerdicorp.acl.ACLStateService.saveLastInsertedData;
 import static com.zerdicorp.acl.ACLUtils.*;
@@ -67,9 +68,14 @@ public class ACLAction extends AnAction {
             return;
         }
 
-        String lastCommit;
+        String message = textarea(project, "ACL Dialog", "Add log message:");
+        if (message == null) {
+            return;
+        }
+
+        String logMessage;
         try {
-            lastCommit = lastCommit(project.getBasePath());
+            logMessage = build(newVersion, message);
         } catch (IOException ex) {
             throw new ACLException("Can't extract last commit message from " + project.getBasePath());
         }
@@ -86,7 +92,7 @@ public class ACLAction extends AnAction {
             return;
         }
 
-        String data = "Version: " + newVersion + "\n" + lastCommit + "\n" + (description.length() == 0 ? "\n" : ("Description: " + description + "\n\n\n"));
+        String data = logMessage + "\n" + (description.length() == 0 ? "\n" : ("Description: " + description + "\n\n\n"));
         try {
             appendTop(changelogPath, data);
         } catch (IOException ex) {
@@ -94,23 +100,13 @@ public class ACLAction extends AnAction {
         }
 
         saveLastInsertedData(project, data);
-
-        notification("ACL Info", "Log with version \"" + newVersion + "\" added to " + CHANGELOG_FILE_NAME, project, INFORMATION, List.of(OPEN_FILE));
-
-        final int answer = yesno("ACL Addition", "Do you want to commit " + CHANGELOG_FILE_NAME + " & squash?");
-
-        if (answer == 1) {
-            return;
-        }
-
-        String lastCommitMessage = commitMessage(lastCommit);
-        try {
-            commitAndSquash(project.getBasePath(), changelogPath, lastCommitMessage);
-        } catch (IOException e) {
-            throw new ACLException("Can't commit & squash in " + project.getBasePath());
-        }
-
-        notification("ACL Info", "Committed and squashed", project, INFORMATION);
+        notification(
+                "ACL Info",
+                "Log with version \"" + newVersion + "\" added to " + CHANGELOG_FILE_NAME,
+                project,
+                INFORMATION,
+                List.of(OPEN_FILE)
+        );
     }
 
     @Override

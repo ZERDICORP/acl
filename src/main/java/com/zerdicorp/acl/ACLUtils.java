@@ -65,7 +65,7 @@ public interface ACLUtils {
 
             Editor editor = FileEditorManager.getInstance(e.getProject()).getSelectedTextEditor();
             int startOffset = editor.getCaretModel().getOffset();
-            int endOffset = startOffset + lastInsertedData.length() - 2;
+            int endOffset = startOffset + lastInsertedData.length();
 
             for (RangeHighlighter highlighter : editor.getMarkupModel().getAllHighlighters()) {
                 highlighter.dispose();
@@ -170,6 +170,17 @@ public interface ACLUtils {
         Messages.showErrorDialog(text, "ACL Error");
     }
 
+    static String textarea(Project project, String title, String text) {
+        return Messages.showMultilineInputDialog(
+                project,
+                text,
+                title,
+                "",
+                Messages.getQuestionIcon(),
+                null
+        );
+    }
+
     static String input(String title, String text, String[] values, String initialValue) {
         return Messages.showEditableChooseDialog(
                 text,
@@ -194,52 +205,6 @@ public interface ACLUtils {
 
     static int yesno(String title, String text) {
         return Messages.showYesNoDialog(text, title, Messages.getQuestionIcon());
-    }
-
-    static String commitMessage(String logMessage) {
-        final String[] parts = logMessage.split("\n");
-        final List<String> result = new ArrayList<>();
-        for (String part : parts) {
-            if (!(part.contains("Author") || part.contains("Date"))) {
-                result.add(part.trim());
-            }
-        }
-        return String.join("\n", result)
-                .trim();
-    }
-
-    static String lastCommit(String projectPath) throws IOException {
-        Runtime rt = Runtime.getRuntime();
-        String[] commands = {"/bin/sh", "-c", "cd " + projectPath + "; git log -1"};
-        Process proc = rt.exec(commands);
-
-        BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-
-        String line;
-        StringBuilder commit = new StringBuilder();
-        boolean canParse = false;
-        while ((line = stdInput.readLine()) != null) {
-            if (line.contains("Author")) {
-                canParse = true;
-            }
-            if (!canParse) {
-                continue;
-            }
-            commit.append(line).append("\n");
-        }
-        return commit.toString();
-    }
-
-    static void commitAndSquash(String projectPath, String pathToChangelog, String lastCommitMessage) throws IOException {
-        Runtime rt = Runtime.getRuntime();
-        String[] commands = {
-                "/bin/sh", "-c", "cd " + projectPath +
-                "; git add " + pathToChangelog +
-                "; git commit -m \"acl tech commit\"" +
-                "; git reset --soft HEAD~2" +
-                "; git commit -m \"" + lastCommitMessage + "\""
-        };
-        rt.exec(commands);
     }
 
     private static String[] parseFoundNormalAndGetPossibleVersions(String foundNormalVersion) {
