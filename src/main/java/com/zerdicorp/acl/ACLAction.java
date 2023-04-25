@@ -3,9 +3,11 @@ package com.zerdicorp.acl;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import org.apache.commons.lang.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -29,7 +31,8 @@ public class ACLAction extends AnAction {
     private void preCheck(Project project, String changelogPath) {
         if (changelogPath == null || !new File(changelogPath).exists()) {
             if (!findChangelog(project)) {
-                throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " + "Please specify the file in the backend folder and try again", List.of(CHOOSE_ANOTHER_ACTION));
+                throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " +
+                        "Please create the file and try again", List.of(CHOOSE_ANOTHER_ACTION));
             }
         }
     }
@@ -39,6 +42,8 @@ public class ACLAction extends AnAction {
 
         preCheck(project, changelogPath);
 
+        Icon selectVersionIcon = Messages.getQuestionIcon();
+        String selectVersionText = "Select the desired version change:";
         String lastVersion;
         try {
             lastVersion = getLastVersion(changelogPath);
@@ -46,9 +51,13 @@ public class ACLAction extends AnAction {
             throw new ACLException("Can't extract last version from " + changelogPath);
         }
 
-        final String[] possibleVersions = parseFoundAndGetPossibleVersions(lastVersion);
+        String[] possibleVersions = parseFoundAndGetPossibleVersions(lastVersion);
         if (possibleVersions == null) {
-            throw new ACLException("Invalid last version '" + lastVersion + "' found in " + CHANGELOG_FILE_NAME);
+            possibleVersions = new String[]{lastVersion};
+            selectVersionIcon = Messages.getWarningIcon();
+            selectVersionText = "I don't know how to parse the latest version from the changelog. " +
+                    "Please change it yourself:";
+
         }
 
         String defaultVersion = possibleVersions[0];
@@ -58,10 +67,11 @@ public class ACLAction extends AnAction {
 
         String newVersion = select(
                 "ACL Dialog",
-                "Select the desired version change:",
+                selectVersionText,
                 possibleVersions,
                 // Set by default minor version change (because the most used)..
-                defaultVersion
+                defaultVersion,
+                selectVersionIcon
         );
 
         if (newVersion == null) {

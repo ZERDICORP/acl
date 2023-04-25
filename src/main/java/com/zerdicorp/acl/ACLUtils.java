@@ -26,6 +26,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.nio.file.Files;
@@ -33,6 +34,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.intellij.notification.NotificationType.INFORMATION;
@@ -101,16 +103,21 @@ public interface ACLUtils {
             String newChangelogPath = chooseFile(e.getProject());
             if (newChangelogPath != null) {
                 saveChangelogPath(e.getProject(), newChangelogPath);
-                notification(
-                        "ACL Welcome",
-                        "Changelog file found: " + newChangelogPath + "<br><br>Ready to work!",
-                        e.getProject(),
-                        INFORMATION,
-                        List.of(CHOOSE_ANOTHER_ACTION)
-                );
+                changelogFileFoundNotification(e.getProject(), newChangelogPath);
             }
         }
     };
+
+    static void changelogFileFoundNotification(Project project, String changelogPath) {
+        notification(
+                "ACL Welcome",
+                "Changelog file found:<br><br><i style='font-weight: bold;'>" + changelogPath +
+                        "</i><br><br>Ready to work!",
+                project,
+                INFORMATION,
+                List.of(CHOOSE_ANOTHER_ACTION)
+        );
+    }
 
     static String shortPath(String path, String projectPath) {
         String[] components = path.replace(projectPath, "").split("/");
@@ -159,7 +166,7 @@ public interface ACLUtils {
             return null;
         }
 
-        return files[0].getCanonicalPath();
+        return files[0].getPath();
     }
 
     static void info(String text) {
@@ -193,10 +200,14 @@ public interface ACLUtils {
     }
 
     static String select(String title, String text, String[] values, String initialValue) {
+        return select(title, text, values, initialValue, Messages.getQuestionIcon());
+    }
+
+    static String select(String title, String text, String[] values, String initialValue, Icon icon) {
         return Messages.showEditableChooseDialog(
                 text,
                 title,
-                Messages.getQuestionIcon(),
+                icon,
                 values,
                 initialValue,
                 null
@@ -228,19 +239,19 @@ public interface ACLUtils {
         };
     }
 
-    private static String[] parseFoundRCAndGetPossibleVersions(String foundRCVersion) {
+    private static String[] parseFoundXXAndGetPossibleVersions(String foundVersion, String prefix) {
         String version;
-        int rc;
+        int n;
         try {
-            final String[] versionAndRC = foundRCVersion.split("-RC\\.");
-            version = versionAndRC[0];
-            rc = Integer.parseInt(versionAndRC[1]);
+            final String[] versionAndXX = foundVersion.split("-" + prefix + "\\.");
+            version = versionAndXX[0];
+            n = Integer.parseInt(versionAndXX[1]);
         } catch (Exception ex) {
             return null;
         }
 
         return new String[]{
-                version + "-RC." + (rc + 1)
+                version + "-" + prefix + "." + (n + 1)
         };
     }
 
@@ -250,7 +261,15 @@ public interface ACLUtils {
             return normal;
         }
 
-        return parseFoundRCAndGetPossibleVersions(foundVersion);
+        final String[] xxs = new String[]{"RC", "HF"};
+        for (int i = 0; i < xxs.length; i++) {
+            final String[] possible = parseFoundXXAndGetPossibleVersions(foundVersion, xxs[i]);
+            if (possible != null) {
+                return possible;
+            }
+        }
+
+        return null;
     }
 
     static String getLastVersion(String pathToChangelog) throws IOException {
@@ -286,7 +305,7 @@ public interface ACLUtils {
         FileUtils.moveFile(tempFile, file);
     }
 
-    static Optional<Path> findFile(String path, String targetFileName) {
+    static List<Path> findFile(String path, String targetFileName) {
         try (Stream<Path> stream = Files.walk(Paths.get(path))) {
             return stream
                     .filter(Files::isRegularFile)
@@ -294,7 +313,7 @@ public interface ACLUtils {
                             .getFileName()
                             .toString()
                             .equals(targetFileName))
-                    .findFirst();
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

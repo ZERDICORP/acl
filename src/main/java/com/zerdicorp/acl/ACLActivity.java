@@ -2,14 +2,12 @@ package com.zerdicorp.acl;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupActivity;
+import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
-import static com.intellij.notification.NotificationType.INFORMATION;
 import static com.intellij.notification.NotificationType.WARNING;
 import static com.zerdicorp.acl.ACLStateService.saveChangelogPath;
 import static com.zerdicorp.acl.ACLUtils.*;
@@ -20,14 +18,26 @@ public class ACLActivity implements StartupActivity {
 
     public static boolean findChangelog(Project project) {
         final String projectPath = project.getBasePath();
-        final Optional<Path> pathOpt = ACLUtils.findFile(projectPath, CHANGELOG_FILE_NAME);
+        final List<Path> foundChangelogs = ACLUtils.findFile(projectPath, CHANGELOG_FILE_NAME);
 
-        if (pathOpt.isPresent()) {
-            String tempPath = pathOpt.get().toString();
-            if (Arrays.asList(tempPath.split("/")).contains("backend")) {
-                CHANGELOG_FILE_PATH = tempPath;
-                return true;
-            }
+        System.out.println(foundChangelogs);
+
+        if (foundChangelogs.size() == 1) {
+            CHANGELOG_FILE_PATH = foundChangelogs.get(0).toString();
+            return true;
+        } else if (foundChangelogs.size() > 1) {
+            String[] variants = foundChangelogs
+                    .stream()
+                    .map(Path::toString)
+                    .toArray(String[]::new);
+            CHANGELOG_FILE_PATH = select(
+                    "ACL Dialog",
+                    "I found more than one changelog file. Please choose one:",
+                    variants,
+                    variants[0],
+                    Messages.getWarningIcon()
+            );
+            return CHANGELOG_FILE_PATH != null;
         }
         return false;
     }
@@ -35,16 +45,8 @@ public class ACLActivity implements StartupActivity {
     @Override
     public void runActivity(@NotNull Project project) {
         if (findChangelog(project)) {
-            saveChangelogPath(project, CHANGELOG_FILE_PATH);
-
             String path = shortPath(CHANGELOG_FILE_PATH, project.getBasePath());
-            notification(
-                    "ACL Welcome",
-                    "Changelog file found:<br><br><i style='font-weight: bold;'>" + path + "</i><br><br>Ready to work!",
-                    project,
-                    INFORMATION,
-                    List.of(CHOOSE_ANOTHER_ACTION)
-            );
+            changelogFileFoundNotification(project, path);
         } else {
             notification(
                     "ACL Skip",
@@ -54,5 +56,6 @@ public class ACLActivity implements StartupActivity {
                     List.of(CHOOSE_ANOTHER_ACTION)
             );
         }
+        saveChangelogPath(project, CHANGELOG_FILE_PATH);
     }
 }

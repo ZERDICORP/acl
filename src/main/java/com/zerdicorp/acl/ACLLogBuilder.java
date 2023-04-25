@@ -12,7 +12,7 @@ public class ACLLogBuilder {
             "Version: {version}\n" +
                     "Author:  {authorShort} <{author}>\n" +
                     "Date:    {datetime}\n\n" +
-                    "\t{message}\n";
+                    "    {message}\n";
 
     public static String getCurrentDatetime() {
         return new SimpleDateFormat("EEE MMM d HH:mm:ss y Z").format(new Date());
@@ -30,7 +30,7 @@ public class ACLLogBuilder {
         final String author = getAuthor();
         final String authorShort = author.split("@")[0];
         final String datetime = getCurrentDatetime();
-        final String preparedMessage = String.join("\n\t", message.split("\n"));
+        final String preparedMessage = String.join("\n    ", message.split("\n"));
 
         return template
                 .replace("{version}", version)
