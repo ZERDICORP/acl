@@ -14,11 +14,9 @@ import java.util.List;
 
 import static com.intellij.notification.NotificationType.ERROR;
 import static com.intellij.notification.NotificationType.INFORMATION;
-import static com.zerdicorp.acl.ACLActivity.CHANGELOG_FILE_NAME;
-import static com.zerdicorp.acl.ACLActivity.findChangelog;
+import static com.zerdicorp.acl.ACLActivity.*;
 import static com.zerdicorp.acl.ACLLogBuilder.build;
-import static com.zerdicorp.acl.ACLStateService.getChangelogPath;
-import static com.zerdicorp.acl.ACLStateService.saveLastInsertedData;
+import static com.zerdicorp.acl.ACLStateService.*;
 import static com.zerdicorp.acl.ACLUtils.*;
 
 public class ACLAction extends AnAction {
@@ -28,19 +26,21 @@ public class ACLAction extends AnAction {
         // don't need it //
     }
 
-    private void preCheck(Project project, String changelogPath) {
+    private String preCheck(Project project, String changelogPath) {
         if (changelogPath == null || !new File(changelogPath).exists()) {
             if (!findChangelog(project)) {
                 throw new ACLException("File " + CHANGELOG_FILE_NAME + " not found.. " +
                         "Please create the file and try again", List.of(CHOOSE_ANOTHER_ACTION));
             }
+            saveChangelogPath(project, CHANGELOG_FILE_PATH);
+            return CHANGELOG_FILE_PATH;
         }
+        return changelogPath;
     }
 
     private void _actionPerformed(Project project) {
-        String changelogPath = getChangelogPath(project);
-
-        preCheck(project, changelogPath);
+        String maybeChangelogPath = getChangelogPath(project);
+        String changelogPath = preCheck(project, maybeChangelogPath);
 
         Icon selectVersionIcon = Messages.getQuestionIcon();
         String selectVersionText = "Select the desired version change:";

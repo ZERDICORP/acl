@@ -69,7 +69,7 @@ public class ACLStateService implements PersistentStateComponent<ACLStateService
             state.map.put(project.getBasePath(), new ACLStateItem(changelogPath));
             return;
         }
-        if (!current.changelog.equals(changelogPath)) {
+        if (changelogPath == null || current.changelog == null || !current.changelog.equals(changelogPath)) {
             current.changelog = changelogPath;
             state.map.put(project.getBasePath(), current);
         }

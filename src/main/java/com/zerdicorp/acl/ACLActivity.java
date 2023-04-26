@@ -14,7 +14,7 @@ import static com.zerdicorp.acl.ACLUtils.*;
 
 public class ACLActivity implements StartupActivity {
     final public static String CHANGELOG_FILE_NAME = "changelog.txt";
-    private static String CHANGELOG_FILE_PATH;
+    static String CHANGELOG_FILE_PATH;
 
     public static boolean findChangelog(Project project) {
         final String projectPath = project.getBasePath();
