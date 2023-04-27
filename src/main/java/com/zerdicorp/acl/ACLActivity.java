@@ -5,10 +5,12 @@ import com.intellij.openapi.startup.StartupActivity;
 import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 
 import static com.intellij.notification.NotificationType.WARNING;
+import static com.zerdicorp.acl.ACLStateService.getChangelogPath;
 import static com.zerdicorp.acl.ACLStateService.saveChangelogPath;
 import static com.zerdicorp.acl.ACLUtils.*;
 
@@ -44,18 +46,22 @@ public class ACLActivity implements StartupActivity {
 
     @Override
     public void runActivity(@NotNull Project project) {
-        if (findChangelog(project)) {
-            String path = shortPath(CHANGELOG_FILE_PATH, project.getBasePath());
-            changelogFileFoundNotification(project, path);
+        String maybeChangelogPath = getChangelogPath(project);
+        if (maybeChangelogPath == null || !new File(maybeChangelogPath).exists()) {
+            if (findChangelog(project)) {
+                changelogFileFoundNotification(project, CHANGELOG_FILE_PATH);
+            } else {
+                notification(
+                        "ACL Skip",
+                        "Can't find " + CHANGELOG_FILE_NAME + ".. Skip!",
+                        project,
+                        WARNING,
+                        List.of(CHOOSE_ANOTHER_ACTION)
+                );
+            }
+            saveChangelogPath(project, CHANGELOG_FILE_PATH);
         } else {
-            notification(
-                    "ACL Skip",
-                    "Can't find " + CHANGELOG_FILE_NAME + ".. Skip!",
-                    project,
-                    WARNING,
-                    List.of(CHOOSE_ANOTHER_ACTION)
-            );
+            changelogFileFoundNotification(project, maybeChangelogPath);
         }
-        saveChangelogPath(project, CHANGELOG_FILE_PATH);
     }
 }

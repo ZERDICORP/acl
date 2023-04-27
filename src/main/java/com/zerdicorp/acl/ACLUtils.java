@@ -119,15 +119,6 @@ public interface ACLUtils {
         );
     }
 
-    static String shortPath(String path, String projectPath) {
-        String[] components = path.replace(projectPath, "").split("/");
-        int len = components.length;
-        if (len > 3) {
-            return components[0] + "/.../" + components[len - 2] + "/" + components[len - 1];
-        }
-        return String.join("/", components);
-    }
-
     static void notification(
             String title,
             String text,
