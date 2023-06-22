@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.zerdicorp"
-version = "8.2"
+version = "8.3"
 
 repositories {
   mavenCentral()

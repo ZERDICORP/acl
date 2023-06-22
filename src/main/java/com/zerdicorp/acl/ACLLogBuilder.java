@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 public class ACLLogBuilder {
 
@@ -15,7 +16,7 @@ public class ACLLogBuilder {
                     "    {message}\n";
 
     public static String getCurrentDatetime() {
-        return new SimpleDateFormat("EEE MMM d HH:mm:ss y Z").format(new Date());
+        return new SimpleDateFormat("EEE MMM d HH:mm:ss y Z", Locale.ENGLISH).format(new Date());
     }
 
     public static String getAuthor() throws IOException {
